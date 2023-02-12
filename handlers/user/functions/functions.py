@@ -13,7 +13,7 @@ from loader import dp, bot
 
 from handlers.admin import mainMenu as adminMainMenu
 
-from states.user import RegUser, HandAdditionLocation
+from states.user import RegUser, HandAdditionLocation, DeleteState
 
 
 @dp.message_handler(CommandStart(), state='*')
@@ -65,11 +65,40 @@ async def add_location(callback_query: types.CallbackQuery):
 async def show_locations(callback_query: types.CallbackQuery):
     await bot.answer_callback_query(callback_query.id)
 
-    if not (data := utils.show_locations(callback_query.from_user.id)):
+    if (data := utils.show_locations(callback_query.from_user.id)) == '{}':
         await bot.send_message(callback_query.from_user.id, 'У вас пока что нет мест. Может попробует добавить?')
         return
 
     await bot.send_message(callback_query.from_user.id, str(data))
+
+
+@dp.callback_query_handler(lambda c: c.data == 'reset_list')
+async def reset_list(callback_query: types.CallbackQuery, state: FSMContext):
+    await state.finish()
+    await bot.answer_callback_query(callback_query.id)
+
+    await bot.send_message(callback_query.from_user.id, "Вы уверены, что хотите все удалить?",
+                           reply_markup=ReplyKeyboardMarkup(resize_keyboard=True)
+                           .add('Да')
+                           .add('Нет'))
+
+    await state.set_state(DeleteState.delete_state.state)
+
+
+@dp.message_handler(content_types=types.ContentType.TEXT, state=DeleteState.delete_state)
+async def delete_state(message: types.Message, state: FSMContext):
+    if message.text.lower() == 'да':
+        if utils.delete_data(message.from_user.id):
+            await message.answer("Все местоположения были успешно удалены!", reply_markup=nav.mainMenu)
+
+        else:
+            await message.answer("Упс... Что-то пошло не так, возможно вы ранее не создавали местоположения",
+                                 reply_markup=nav.mainMenu)
+
+    else:
+        await message.answer('Отмена...', reply_markup=nav.mainMenu)
+
+    await state.finish()
 
 
 @dp.message_handler(content_types=types.ContentType.LOCATION)
@@ -137,7 +166,8 @@ async def hand_setting_img(message: types.Message, state: FSMContext):
         await state.set_state(HandAdditionLocation.img_.state)
 
     elif mes == 'нет':
-        await message.answer('Будет информация для этого места?', reply_markup=ReplyKeyboardMarkup(resize_keyboard=True)
+        await message.answer('Будет информация для этого места?',
+                             reply_markup=ReplyKeyboardMarkup(resize_keyboard=True)
                              .add(KeyboardButton('Да'))
                              .add(KeyboardButton('Нет')))
         await state.set_state(HandAdditionLocation.info.state)
@@ -151,7 +181,7 @@ async def hand_setting_img_(message: types.Message, state: FSMContext):
     await state.update_data(img=True)
 
     path = utils.get_project_path() + \
-        f'data/imgs/{message.from_user.id}_{utils.location_list_len(message.from_user.id)}.png'
+           f'data/imgs/{message.from_user.id}_{utils.location_list_len(message.from_user.id)}.png'
     await message.photo[-1].download(destination_file=path)
 
     await message.answer('Будет информация для этого места?', reply_markup=ReplyKeyboardMarkup(resize_keyboard=True)
@@ -225,27 +255,13 @@ async def another_text(message: types.Message, state: FSMContext):
     await message.answer("Вводите нормально!")
 
 
-@dp.message_handler(commands=['list'], state='*')
-async def get_list(message: types.Message, state: FSMContext):
-    ...
-
-    await message.reply('.')
-
-
-@dp.message_handler(commands=['reset'], state='*')
-async def delete_from_list(message: types.Message, state: FSMContext):
-    ...
-
-    await message.reply('.')
-
-
 # INFO
 @dp.message_handler(Text(equals='Что это?'), state='*')
 async def what_is_it(message: types.Message, state: FSMContext):
     text = """asd
-    asd
-    asd
-    """
+asd
+asd
+"""
 
     await message.reply(text)
 
@@ -253,9 +269,9 @@ async def what_is_it(message: types.Message, state: FSMContext):
 @dp.message_handler(Text(equals='Как пользоваться ботом?'), state='*')
 async def how_to_use_it(message: types.Message, state: FSMContext):
     text = """asd
-    asd
-    asd
-    """
+asd
+asd
+"""
 
     await message.reply(text)
 

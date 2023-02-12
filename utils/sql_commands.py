@@ -1,7 +1,10 @@
 import json
+import os
+
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy import func, desc
 
+import utils
 from utils.datbase import session
 from utils.schemas import User, UserLocations
 
@@ -115,7 +118,7 @@ def show_locations(tg_id):
 
     except Exception as e:
         print(e)
-        return ''
+        return '{}'
 
     finally:
         session.commit()
@@ -127,3 +130,36 @@ def location_list_len(tg_id):
     data = json.loads(show_locations(tg_id))
 
     return data.__len__()
+
+
+def delete_data(tg_id):
+    try:
+        user_location = session.query(UserLocations).filter(UserLocations.tg_id.like(tg_id)).one()
+
+    except Exception as e:
+        print(e)
+        return False
+
+    if user_location == '{}':
+        return True
+
+    user_location_data = json.loads(user_location.data)
+    path = utils.get_project_path() + f'data/imgs/{tg_id}_'
+
+    for key, value in user_location_data.items():
+        if value.give('img'):
+            if os.path.exists(path + key + '.png'):
+                os.remove(path + key + '.png')
+
+    try:
+        user_location.data = '{}'
+        session.commit()
+
+    except Exception as e:
+        print(e)
+        return False
+
+    except IntegrityError:
+        session.rollback()
+
+    return True
