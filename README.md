@@ -1,2 +1,2 @@
 # TelegramBotLinux
-Just run <code>start.py</code> using Python >=3.6
+Just run <code>start.py</code> using Python >=3.8
